@@ -4,22 +4,26 @@ import com.atm.demo.model.ATM;
 import com.atm.demo.model.Customer;
 import com.atm.demo.repository.ATMRepository;
 import com.atm.demo.repository.CustomerRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 @Service
 public class ATMService {
+    public static final String SESSION_AUTHENTICATED = "SESSION_AUTHENTICATED";
 
-    @Autowired
-    private CustomerRepository customerRepository;
+    private final CustomerRepository customerRepository;
 
-    @Autowired
-    private ATMRepository atmRepository;
+    private final ATMRepository atmRepository;
+
+    public ATMService (CustomerRepository customerRepository, ATMRepository atmRepository) {
+        this.atmRepository = atmRepository;
+        this.customerRepository = customerRepository;
+    }
 
     public String withdrawCash(Customer customer, BigDecimal amount) {
-        // Customer customer = customerRepository.findByAccountNumber(accountNumber);
         ATM atm = atmRepository.findAll().get(0); // assuming only 1 atm.
 
         boolean hasEnoughCashInAccount = customer.getTotalBalance().compareTo(amount) >= 0;
@@ -41,7 +45,15 @@ public class ATMService {
     }
 
     public Boolean isAuthenticated(Integer accountNumber, Integer pin) {
-        Customer customer = customerRepository.findByAccountNumber(accountNumber);
-        return customer.getPin().equals(pin);
+        Optional<Customer> customer = customerRepository.findByAccountNumber(accountNumber);
+        return customer.map(c -> c.getPin().equals(pin)).orElse(false);
+    }
+
+    public Optional<Customer> ifAuthenticatedGetCustomer(HttpSession session) {
+        var authenticatedCustomer = session.getAttribute(SESSION_AUTHENTICATED);
+        if (authenticatedCustomer != null) {
+            return customerRepository.findByAccountNumber((Integer) session.getAttribute(SESSION_AUTHENTICATED));
+        }
+        return Optional.empty();
     }
 }
